@@ -1,12 +1,9 @@
 import requests
 import json
-from time import sleep
 from bs4 import BeautifulSoup
 from getpass import getpass
 
 sess = requests.session()
-
-course_id = 1804
 
 def video_filter(link_name):
     '''
@@ -17,9 +14,6 @@ def video_filter(link_name):
 
 
 def login():
-    global course_id
-    course_id = input('Course ID: ')
-
     page = sess.get('https://cool.ntu.edu.tw/login/saml').text
     soup = BeautifulSoup( page[page.find('<form'):page.find('</form>')+7], 'html.parser' )
     payload = {}
@@ -37,8 +31,21 @@ def login():
     url = 'https://cool.ntu.edu.tw/login/saml'
     sess.post(url, data=payload)
 
+def select_course():
+    soup = BeautifulSoup(sess.get('https://cool.ntu.edu.tw/courses').text, 'html.parser')
+    print('=========================')
+    print('index. #course_id [title]')
+    cc = {}
+    for i, link in enumerate(soup.find(id='my_courses_table').findAll('a')):
+        title = link.attrs['title']
+        course_id = link.attrs['href'].split('/')[-1]
+        print('{:2}. #{:4} [{}]'.format(i, course_id, title))
+        cc[i] = course_id
+    idx = int(input('Select your course by index: '))
+    return cc[idx]
 
-def download():
+
+def download(course_id):
     urls_vid = []
 
     soup = BeautifulSoup( sess.get(f'https://cool.ntu.edu.tw/courses/{course_id}/modules').text, 'html.parser' )
@@ -56,10 +63,11 @@ def download():
                 urls_vid.append({'url': aaa.attrs['href'], 'title': aaa.text.strip('\n '), 'index': idx, 'type': item_type})
                 idx += 1
 
-    print('index. #type [title](URL)')
+    print('====================')
+    print('index. #type [title]')
     for item in urls_vid:
-        print('{:2}. #{:10} [{:^20}]({})'.format(item['index'], item['type'], item['title'], item['url']))
-    chosen = list(map(int, input('Enter indices of items you want to download, separated by spaces: ').split(' ')))
+        print('{:2}. #{:10} [{}]'.format(item['index'], item['type'], item['title']))
+    chosen = list(map(int, input('Select your file by index, separated by spaces: ').split(' ')))
 
     get_url = lambda x: f'https://lti.dlc.ntu.edu.tw/api/v1/courses/{course_id}/videos/{x}'
     for item in urls_vid:
@@ -87,7 +95,10 @@ def download():
             print('Finished !', flush=True)
         # input('Press Enter To Continue ...')
 
+def main():
+    login()
+    course_id = select_course()
+    download(course_id)
 
 if __name__ == '__main__':
-    login()
-    download()
+    main()
